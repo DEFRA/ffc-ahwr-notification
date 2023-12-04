@@ -1,4 +1,4 @@
-# FFC ahwr NOTIFY Notification
+# FFC AHWR Notification
 
 Notification microservice for applications.
 This service will pickup message and call gov notify api to send email to applicant as well as RPA.
