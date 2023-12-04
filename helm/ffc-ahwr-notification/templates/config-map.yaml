@@ -1,0 +1,10 @@
+{{- include "ffc-helm-library.container-config-map" (list . "ffc-ahwr-notification.config-map") -}}
+{{- define "ffc-ahwr-notification.config-map" -}}
+data:
+  NODE_ENV: {{ quote .Values.environment }}
+  PORT: {{ quote .Values.container.port }}
+  NOTIFY_SUBMITTED_TOPIC_ADDRESS: {{ quote .Values.container.notifySubmittedTopicAddress }}
+  NOTIFY_SUBMITTED_SUBSCRIPTION_ADDRESS: {{ quote .Values.container.notifySubmittedSubscriptionAddress }}
+  SERVICE_BUS_HOST: {{ quote .Values.container.messageQueueHost }}
+  APPINSIGHTS_CLOUDROLE: {{ quote .Values.name }}
+{{- end -}}

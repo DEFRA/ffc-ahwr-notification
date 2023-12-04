@@ -1,4 +1,3 @@
-require('./insights').setup()
 const Hapi = require('@hapi/hapi')
 
 const server = Hapi.server({
@@ -11,5 +10,4 @@ const routes = [].concat(
 )
 
 server.route(routes)
-
 module.exports = server

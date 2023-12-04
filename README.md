@@ -1,83 +1,70 @@
-# FFC Template Node
+# FFC ahwr NOTIFY Notification
 
-Template to support rapid delivery of microservices for FFC Platform. It contains the configuration needed to deploy a simple Hapi Node server to the Azure Kubernetes Platform.
-
-## Usage
-
-Create a new repository from this template and run `./rename.js` specifying the new name of the project and the description to use e.g.
-```
-./rename.js ffc-demo-web "Web frontend for demo workstream"
-```
-
-The script will update the following:
-
-* `package.json`: update `name`, `description`, `homepage`
-* `docker-compose.yaml`: update the service name, `image` and `container_name`
-* `docker-compose.test.yaml`: update the service name, `image` and `container_name`
-* `docker-compose.override.yaml`: update the service name, `image` and `container_name`
-* Rename `helm/ffc-template-node`
-* `helm/ffc-template-node/Chart.yaml`: update `description` and `name`
-* `helm/ffc-template-node/values.yaml`: update  `name`, `namespace`, `workstream`, `image`, `containerConfigMap.name`
-* `helm/ffc-template-node/templates/_container.yaml`: update the template name
-* `helm/ffc-template-node/templates/cluster-ip-service.yaml`: update the template name and list parameter of include
-* `helm/ffc-template-node/templates/config-map.yaml`: update the template name and list parameter of include
-* `helm/ffc-template-node/templates/deployment.yaml`: update the template name, list parameter of deployment and container includes
-
-### Notes on automated rename
-
-* The Helm chart deployment values in `helm/ffc-template-node/values.yaml` may need updating depending on the resource needs of your microservice
-* The rename is a one-way operation i.e. currently it doesn't allow the name being changed from to be specified
-* There is some validation on the input to try and ensure the rename is successful, however, it is unlikely to stand up to malicious entry
-* Once the rename has been performed the script can be removed from the repo
-* Should the rename go awry the changes can be reverted via `git clean -df && git checkout -- .`
+Notification microservice for applications.
+This service will pickup message and call gov notify api to send email to applicant as well as RPA.
 
 ## Prerequisites
 
+- Access to an instance of an
+[Azure Service Bus](https://docs.microsoft.com/en-us/azure/service-bus-messaging/)(ASB).
 - Docker
 - Docker Compose
 
 Optional:
+
 - Kubernetes
 - Helm
 
-## Running the application
+### Azure Service Bus
 
-The application is designed to run in containerised environments, using Docker Compose in development and Kubernetes in production.
+This service depends on a valid Azure Service Bus connection string for
+asynchronous communication.  The following environment variables need to be set
+in any non-production (`!config.isProd`) environment before the Docker
+container is started. When deployed into an appropriately configured AKS
+cluster (where [AAD Pod Identity](https://github.com/Azure/aad-pod-identity) is
+configured) the micro-service will use AAD Pod Identity through the manifests
+for
+[azure-identity](./helm/ffc-ahwr-claim-service/templates/azure-identity.yaml)
+and
+[azure-identity-binding](./helm/ffc-ahwr-claim-service/templates/azure-identity-binding.yaml).
 
-- A Helm chart is provided for production deployments to Kubernetes.
+| Name                   | Description                                                                                |
+| ----                   | -----------                                                                                |
+| SERVICE_BUS_HOST       | Azure Service Bus hostname, e.g. `myservicebus.servicebus.windows.net`                     |
+| SERVICE_BUS_PASSWORD   | Azure Service Bus SAS policy key                                                           |
+| SERVICE_BUS_USER       | Azure Service Bus SAS policy name, e.g. `RootManageSharedAccessKey`                        |
 
-### Build container image
+## Environment variables
 
-Container images are built using Docker Compose, with the same images used to run the service with either Docker Compose or Kubernetes.
+The following environment variables are required by the application container.
+Values for development are set in the Docker Compose configuration. Default
+values for production-like deployments are set in the Helm chart and may be
+overridden by build and release pipelines.
 
-When using the Docker Compose files in development the local `app` folder will
-be mounted on top of the `app` folder within the Docker container, hiding the CSS files that were generated during the Docker build.  For the site to render correctly locally `npm run build` must be run on the host system.
+| Name                                      | Description                               | Required  | Default            | Valid                       | Notes                                                                             |
+| ----                                      | -----------                               | :-------: | -------            | -----                       | -----                                                                             |
+| APPINSIGHTS_CLOUDROLE                     | Role used for filtering metrics           | no        |                    |                             | Set to `ffc-ahwr-notification` in docker compose files                               |
+| APPINSIGHTS_INSTRUMENTATIONKEY            | Key for application insight               | no        |                    |                             | App insights only enabled if key is present. Note: Silently fails for invalid key |
+| NODE_ENV                                  | Node environment                          | no        | development        | development,test,production |                                                                                   |
+| PORT                                      | Port number                               | no        | 3000               |                             |                                                         |
+| PROTECTIVE_MONITORING_URL                 | protective monitoring url                 | no        | url                |                             |                                                                                   |
+| NOTIFY_API_KEY                            | gov notify key                            | no        |                    |                             |                                                                                   |
+| NOTIFY_SUBMITTED_SUBSCRIPTION_ADDRESS| queue topic address                      | no        |                    |                             |                                                                                   |
+| NOTIFY_SUBMITTED_TOPIC_ADDRESS      | queue topic address                       | no        |                    |                             |                                                                                |
 
-
-By default, the start script will build (or rebuild) images so there will
-rarely be a need to build images manually. However, this can be achieved
-through the Docker Compose
-[build](https://docs.docker.com/compose/reference/build/) command:
-
-```
-# Build container images
-docker-compose build
-```
-
-### Start
-
-Use Docker Compose to run service locally.
-
-```
-docker-compose up
-```
+Running the integration tests locally requires access to ASB, this can be
+achieved by setting the following environment variables:
+`SERVICE_BUS_HOST`, `SERVICE_BUS_USER`, `SERVICE_BUS_PASSWORD`.
+`NOTIFY_SUBMITTED_SUBSCRIPTION_ADDRESS`, `NOTIFY_SUBMITTED_TOPIC_ADDRESS` must be set to a valid, developer specific queue that is
+available on ASB e.g. `ffc-ahwr-notification-<initials>` where `<initials>` are the
+initials of the developer.
 
 ## Test structure
 
-The tests have been structured into subfolders of `./test` as per the
+The tests have been structured into subfolders of ./test as per the
 [Microservice test approach and repository structure](https://eaflood.atlassian.net/wiki/spaces/FPS/pages/1845396477/Microservice+test+approach+and+repository+structure)
 
-### Running tests
+## How to run tests
 
 A convenience script is provided to run automated tests in a containerised
 environment. This will rebuild images before running tests via docker-compose,
@@ -87,13 +74,80 @@ arguments to the test script.
 
 Examples:
 
-```
+```shell
 # Run all tests
 scripts/test
 
 # Run tests with file watch
 scripts/test -w
 ```
+
+## Running the application
+
+The application is designed to run in containerised environments, using Docker
+Compose in development and Kubernetes in production.
+
+- A Helm chart is provided for production deployments to Kubernetes.
+
+### Build container image
+
+Container images are built using Docker Compose, with the same images used to
+run the service with either Docker Compose or Kubernetes.
+
+When using the Docker Compose files in development the local `app` folder will
+be mounted on top of the `app` folder within the Docker container, hiding the
+CSS files that were generated during the Docker build.  For the site to render
+correctly locally `npm run build` must be run on the host system.
+
+By default, the start script will build (or rebuild) images so there will
+rarely be a need to build images manually. However, this can be achieved
+through the Docker Compose
+[build](https://docs.docker.com/compose/reference/build/) command:
+
+```shell
+# Build container images
+docker-compose build
+```
+
+### Start and stop the service
+
+Use Docker Compose to run service locally.
+
+`docker-compose up`
+
+Additional Docker Compose files are provided for scenarios such as linking to
+other running services.
+
+Link to other services:
+
+```shell
+docker-compose -f docker-compose.yaml -f docker-compose.override.yaml -f docker-compose.link.yaml up
+```
+
+#### Accessing the pod
+
+The service is exposed via a Kubernetes ingress, which requires an ingress
+controller to be running on the cluster. For example, the NGINX Ingress
+Controller may be installed via Helm.  
+
+Alternatively, a local port may be forwarded to the pod:
+
+```shell
+# Forward local port to the Kubernetes deployment
+kubectl port-forward --namespace=ffc-ahwr deployment/ffc-ahwr-notification 3000:3000
+```
+
+Once the port is forwarded or an ingress controller is installed, the service
+can be accessed and tested in the same way as described in the
+[Test the service](#test-the-service) section above.
+
+#### Probes
+
+The service has both an Http readiness probe and an Http liveness probe
+configured to receive at the below end points.
+
+Readiness: `/healthy`
+Liveness: `/healthz`
 
 ## CI pipeline
 
